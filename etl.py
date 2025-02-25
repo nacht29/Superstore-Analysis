@@ -25,6 +25,6 @@ returns_df.columns = [snake_case(col) for col in returns_df.columns]
 if orders_df.duplicated().sum() > 0:
 	orders_df.drop_duplicates(keep='last', inplace=True)
 if people_df.duplicated().sum() > 0:
-	people_df.drop_duplicates(keep='last', inplace=True)
+	people_df.drop_duplicates(inplace=True)
 if returns_df.duplicated().sum() > 0:
-	returns_df.drop_duplicates(keep='last', inplace=True)
+	returns_df.drop_duplicates(inplace=True)
