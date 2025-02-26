@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS orders (
 	FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 
-CREATE TABLE IF NOT EXISTS returns (
+CREATE TABLE IF NOT EXISTS return_status (
 	order_id VARCHAR(20) PRIMARY KEY,
-	returned VARCHAR(1)
+	returned VARCHAR(1),
+	FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
