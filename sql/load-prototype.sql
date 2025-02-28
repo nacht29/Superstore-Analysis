@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS superstore;
-USE superstore;
+-- CREATE DATABASE IF NOT EXISTS superstore;
+-- USE superstore;
 
 CREATE TABLE IF NOT EXISTS regions (
 	region VARCHAR(10) PRIMARY KEY,
@@ -36,13 +36,8 @@ CREATE TABLE IF NOT EXISTS orders (
 	quantity INT,
 	discount DECIMAL(10,2),
 	profit DECIMAL(10,2),
+	returned VARCHAR(3),
 	PRIMARY KEY (order_id, product_id),
 	FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
 	FOREIGN KEY (product_id) REFERENCES products(product_id)
-);
-
-CREATE TABLE IF NOT EXISTS return_stat (
-	order_id VARCHAR(20) PRIMARY KEY,
-	returned VARCHAR(3),
-	FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
