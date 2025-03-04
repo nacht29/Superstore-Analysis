@@ -29,6 +29,10 @@ This is how the data will be transformed and warehoused.
 ## Files
 
 ### Expermimenting with the ETL process
-[](https://github.com/nacht29/Super-Store-Analysis/blob/main/Super-Store-Analysis.ipynb)
+
+- **Jupyter Notebook:** [Superstore-Analysis.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/Superstore-Analysis.ipynb)
 
 ### Ingestion script
+
+- **Jupyter Notebook:** [ingestion.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
+- **Python script:** [ingestion.py](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
