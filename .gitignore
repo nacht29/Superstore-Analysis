@@ -178,3 +178,8 @@ etl.py
 *.html
 *.sql
 Super-Store-Analysis.py
+2.py
+*.sh
+ingestion-ref.pybuilder
+airflow-venv/*
+airflow-venv
