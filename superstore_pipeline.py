@@ -115,7 +115,7 @@ Transform
 '''
 
 def log_orders():
-	global orders
+	global orders_df
 	log.info(f"Global orders: {orders_df.shape}, columns: {orders_df.columns.tolist()}")
 
 
