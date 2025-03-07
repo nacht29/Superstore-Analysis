@@ -30,20 +30,6 @@ credentials = service_account.Credentials.from_service_account_file(key_path)
 client = bq.Client(credentials=credentials, project=credentials.project_id)
 
 '''
-init dataframe
-'''
-# raw data
-orders_df = pd.DataFrame()
-people_df = pd.DataFrame()
-returns_df = pd.DataFrame()
-
-# target tables
-orders = pd.DataFrame()
-customers = pd.DataFrame()
-products = pd.DataFrame()
-regions = pd.DataFrame()
-
-'''
 helper functions - transform
 '''
 # format headers to snake case
@@ -82,6 +68,7 @@ def load_temp_table(df:'dataframe', table_name:str) -> tuple:
 
 # gets column names for tables
 # adds src. suffix for table columns and return as str
+# (col:'column name in target table', src_col:'column name in target table')
 def get_col(df:'dataframe') ->tuple:
 	col_lst = list(df.columns)
 	col = ', '.join(col_lst)
@@ -94,9 +81,7 @@ def get_col(df:'dataframe') ->tuple:
 '''
 Extract
 '''
-def extract(file_path:str):
-	global orders_df, people_df, returns_df
-	
+def extract(file_path:str, **kwargs):	
 	# check data src file path
 	log.info(f"Reading file from: {file_path}")
 	
@@ -105,22 +90,29 @@ def extract(file_path:str):
 		orders_df = pd.read_excel(file_path, sheet_name='Orders', header=0)
 		people_df = pd.read_excel(file_path, sheet_name='People', header=0)
 		returns_df = pd.read_excel(file_path, sheet_name='Returns', header=0)
+
+		# export df as JSON
+		ti = kwargs['ti']
+		ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
+		ti.xcom_push(key='people_df', value=people_df.to_json(orient='split'))
+		ti.xcom_push(key='returns_df', value=returns_df.to_json(orient='split'))
 		log.info("File read successfully.")
 	except Exception as error:
 		log.error(f"Failed to read file: {error}")
-		raise
 
 '''
 Transform
 '''
 
-def log_orders():
-	global orders_df
-	log.info(f"Global orders: {orders_df.shape}, columns: {orders_df.columns.tolist()}")
+def process_Orders(**kwargs):
+	ti = kwargs['ti']
+	orders_json = ti.xcom_pull(task_ids='extract_superstore_data', key='orders_df')
+	ti.log.info(f"Orders DataFrame: Shape = {orders_df.shape}, Columns = {orders_df.columns.tolist()}")
 
-
-def process_Orders():
-	global orders_df
+	try:
+		orders_df = pd.read_json(orders_json, orient='split')
+	except Exception as error:
+		log.error(f'Failed to load Orders data for transformation:\n{error}')
 
 	# format headers
 	try:
@@ -143,6 +135,9 @@ def process_Orders():
 	orders_df['quantity'] = orders_df['quantity'].astype(int).round(2)
 	orders_df['discount'] = orders_df['discount'].astype(float).round(2)
 	orders_df['profit'] = orders_df['profit'].astype(float).round(2)
+
+	ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
+
 
 def process_People():
 	global people_df
