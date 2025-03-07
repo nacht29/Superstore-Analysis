@@ -111,17 +111,17 @@ def extract_superstore_data(file_path:str, **kwargs):
 Transform
 '''
 
-def process_Orders(**kwargs):
+def process_Orders_Returns(**kwargs):
 	ti = kwargs['ti']
 
-	# get data from extract as JSON
+	# get Orders data from extract as JSON
 	try:
 		orders_df_json = ti.xcom_pull(task_ids='extract_superstore_data', key='orders_df')
 	except Exception as error:
 		log.error(f'Error retrieving data from Orders for processing:\n\n{error}')
 		raise
 	
-	# read data from JSON
+	# read Orders data from JSON
 	orders_df = pd.read_json(orders_df_json, orient='split')
 
 	# rename headers
@@ -137,7 +137,7 @@ def process_Orders(**kwargs):
 	
 	orders_df.columns = [snake_case(col) for col in list(orders_df.columns)]
 
-	# aggregation
+	# Orders aggregation
 	try:
 		agg_instruction = {col: ('sum' if col in ['sales', 'quantity', 'profit'] else 'last') for col in list(orders_df.columns)}
 		orders_df = orders_df.groupby(['order_id', 'product_id'], as_index=False).agg(agg_instruction)
@@ -145,7 +145,7 @@ def process_Orders(**kwargs):
 		log.error(f'Orders aggregation error:\n\n{error}')
 		raise
 
-	# format numerical data
+	# format Orders numerical data
 	try:
 		orders_df['sales'] = orders_df['sales'].astype(float).round(2)
 		orders_df['quantity'] = orders_df['quantity'].astype(int).round(2)
@@ -155,23 +155,15 @@ def process_Orders(**kwargs):
 		log.error(f'Error formatting numerical data for Orders:\n\n{error}')
 		raise
 
-	# update df to JSON
-	ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
-
-def process_Returns_Orders(**kwargs):
-	ti = kwargs['ti']
-
-	# get data as JSON
+	# get Returns data as JSON
 	try:
 		returns_df_json = ti.xcom_pull(task_ids='extract_superstore_data', key='returns_df')
-		orders_df_json = ti.xcom_pull(task_ids='task_process_Orders', key='orders_df')
 	except Exception as error:
 		log.error(f'Error retrieving Returns data for processing:\n\n{error}')
 		raise
 
-	# read data from JSON
+	# read data from Returns JSON
 	returns_df = pd.read_json(returns_df_json, orient='split')
-	orders_df = pd.read_json(orders_df_json, orient='split')
 	
 	# format Returns headers
 	try:
@@ -196,7 +188,7 @@ def process_Returns_Orders(**kwargs):
 		orders_df['returned'] = orders_df['order_id'].isin(returns_df['order_id']).map({True: 'Yes', False: 'No'})
 		orders_df = orders_df.applymap(std_null) # handle null values here for orders_df
 
-	# update df to JSON
+	# update Orders to JSON
 	ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
 
 def process_People(**kwargs):
@@ -253,14 +245,9 @@ with DAG(
 		}
 	)
 
-	task_process_Orders = PythonOperator(
-		task_id='process_Orders',
-		python_callable=process_Orders  # Renamed function to avoid conflict
-	)
-
-	task_process_Returns_Orders = PythonOperator(
-		task_id='process_Returns_Orders',
-		python_callable=process_Returns_Orders  # Define the missing task
+	task_process_Orders_Returns = PythonOperator(
+		task_id='process_Orders_Returns',
+		python_callable=process_Orders_Returns  # Renamed function to avoid conflict
 	)
 
 	task_process_People = PythonOperator(
@@ -269,4 +256,4 @@ with DAG(
 	)
 
 	# Define task dependencies
-	task_extract >> [task_process_Orders, task_process_People, task_process_Returns_Orders]
+	task_extract >> [task_process_Orders_Returns, task_process_People]
