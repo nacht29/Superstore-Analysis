@@ -121,7 +121,7 @@ def process_Orders(**kwargs):
 		log.error(f'Error retrieving data from Orders for processing:\n\n{error}')
 		raise
 	
-	# read JSON file
+	# read data from JSON
 	orders_df = pd.read_json(orders_df_json, orient='split')
 
 	# rename headers
@@ -134,6 +134,8 @@ def process_Orders(**kwargs):
 	except Exception as error:
 		log.error(f'Error formatiing headers for Orders:\n\n{error}')
 		raise
+	
+	orders_df.columns = [snake_case(col) for col in list(orders_df.columns)]
 
 	# aggregation
 	try:
@@ -156,6 +158,47 @@ def process_Orders(**kwargs):
 	# update df to JSON
 	ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
 
+def process_Returns_Orders(**kwargs):
+	ti = kwargs['ti']
+
+	# get data as JSON
+	try:
+		returns_df_json = ti.xcom_pull(task_ids='extract_superstore_data', key='returns_df')
+		orders_df_json = ti.xcom_pull(task_ids='task_process_Orders', key='orders_df')
+	except Exception as error:
+		log.error(f'Error retrieving Returns data for processing:\n\n{error}')
+		raise
+
+	# read data from JSON
+	returns_df = pd.read_json(returns_df_json, orient='split')
+	orders_df = pd.read_json(orders_df_json, orient='split')
+	
+	# format Returns headers
+	try:
+		returns_df.columns = [snake_case(col) for col in returns_df.columns]
+	except Exception as error:
+		log.error(f'Error formatting Returns header:\n\n{error}')
+		raise
+
+	returns_df.columns = [snake_case(col) for col in returns_df.columns]
+
+	# merge Returns with Orders and handle NULL values
+	orders_oid_count = orders_df['order_id'].value_counts().reset_index()
+	orders_oid_count.columns = ['order_id', 'orders_oid_count']
+
+	returns_oid_count = returns_df['order_id'].value_counts().reset_index()
+	returns_oid_count.columns = ['order_id', 'returns_oid_count']
+
+	same_id_entries = orders_oid_count.merge(returns_oid_count, on='order_id', how='inner')
+	mismatch = len(same_id_entries[same_id_entries['orders_oid_count'] != same_id_entries['returns_oid_count']])
+
+	if mismatch == 0:
+		orders_df['returned'] = orders_df['order_id'].isin(returns_df['order_id']).map({True: 'Yes', False: 'No'})
+		orders_df = orders_df.applymap(std_null) # handle null values here for orders_df
+
+	# update df to JSON
+	ti.xcom_push(key='orders_df', value=orders_df.to_json(orient='split'))
+
 def process_People(**kwargs):
 	ti = kwargs['ti']
 
@@ -163,10 +206,10 @@ def process_People(**kwargs):
 	try:
 		people_df_json = ti.xcom_pull(task_ids='extract_superstore_data', key='people_df')
 	except Exception as error:
-		log.error(f'Error formatiing headers for People:\n\n{error}')
+		log.error(f'Error retrieving People data for processing:\n\n{error}')
 		raise
 
-	# read JSON
+	# read data from JSON
 	people_df = pd.read_json(people_df_json, orient='split')
 
 	# format headers
@@ -190,7 +233,7 @@ def process_People(**kwargs):
 with DAG(
 	'superstore_beta',
 	start_date=datetime(2024, 3, 6),
-	schedule=None,
+	schedule_interval=None,  # Correct parameter name
 	catchup=False,
 	params={
 		'file_path': Param(
@@ -206,7 +249,24 @@ with DAG(
 		task_id='extract_superstore_data',
 		python_callable=extract_superstore_data,
 		op_kwargs={
-			'file_path': '{{ params.file_path }}'
-		},
-		provide_context=True
+			'file_path': '{{ params.file_path }}'  # Access params correctly
+		}
 	)
+
+	task_process_Orders = PythonOperator(
+		task_id='process_Orders',
+		python_callable=process_Orders  # Renamed function to avoid conflict
+	)
+
+	task_process_Returns_Orders = PythonOperator(
+		task_id='process_Returns_Orders',
+		python_callable=process_Returns_Orders  # Define the missing task
+	)
+
+	task_process_People = PythonOperator(
+		task_id='process_People',
+		python_callable=process_People  # Renamed function to avoid conflict
+	)
+
+	# Define task dependencies
+	task_extract >> [task_process_Orders, task_process_People, task_process_Returns_Orders]
