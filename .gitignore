@@ -187,3 +187,5 @@ airflow-venv
 *.txt
 test_pipeline.py
 full_pipeline_ref.py
+
+airflow.bash
