@@ -222,6 +222,38 @@ def process_People(**kwargs):
 	# update df to JSON
 	ti.xcom_push(key='people_df', value=people_df.to_json(orient='split'))
 
+def restructure_df(**kwargs):
+	ti = kwargs['ti']
+	
+	# extract data as JSON
+	try:
+		orders_df_json = ti.xcom_pull(task_ids='process_Orders_Returns', key='orders_df')
+		people_df_json = ti.xcom_pull(task_ids='process_People', key='people_df')
+	except Exception as error:
+		log.error(f'Error retrieving Orders and People for restructuring:\n\n{error}')
+		raise
+
+	# read JSON into df
+	orders_df = pd.read_json(orders_df_json, orient='split')
+	people_df = pd.read_json(people_df_json, orient='split')
+
+	# restructuring
+	orders = orders_df[['order_id', 'order_date', 'ship_date', 'ship_mode', 
+					'customer_id', 'product_id',
+					'sales', 'quantity', 'discount', 'profit', 'returned']]
+
+	customers = orders_df[['customer_id', 'customer_name', 'segment', 
+						'country', 'city', 'province', 'post_code', 'region']].drop_duplicates(subset=['customer_id'])
+
+	products = orders_df[['product_id', 'product_name', 'category', 'sub_category']].drop_duplicates(subset=['product_id'])
+	regions = people_df[['region', 'manager']]
+
+	# update df as JSON
+	ti.xcom_push(key='orders', value=orders.to_json(orient='split'))
+	ti.xcom_push(key='customers', value=customers.to_json(orient='split'))
+	ti.xcom_push(key='products', value=products.to_json(orient='split'))
+	ti.xcom_push(key='regions', value=regions.to_json(orient='split'))
+
 with DAG(
 	'superstore_beta',
 	start_date=datetime(2024, 3, 6),
@@ -241,19 +273,28 @@ with DAG(
 		task_id='extract_superstore_data',
 		python_callable=extract_superstore_data,
 		op_kwargs={
-			'file_path': '{{ params.file_path }}'  # Access params correctly
+			'file_path': '{{ params.file_path }}' 
 		}
 	)
 
 	task_process_Orders_Returns = PythonOperator(
 		task_id='process_Orders_Returns',
-		python_callable=process_Orders_Returns  # Renamed function to avoid conflict
+		python_callable=process_Orders_Returns,
+		provide_context=True
 	)
 
 	task_process_People = PythonOperator(
 		task_id='process_People',
-		python_callable=process_People  # Renamed function to avoid conflict
+		python_callable=process_People,
+		provide_context=True
 	)
 
-	# Define task dependencies
+	task_restructure_df = PythonOperator(
+		task_id='restructure_df',
+		python_callable=restructure_df,
+		provide_context=True
+	)
+
+	# task dependencies
 	task_extract >> [task_process_Orders_Returns, task_process_People]
+	[task_process_Orders_Returns, task_process_People] >> task_restructure_df
