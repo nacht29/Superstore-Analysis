@@ -254,6 +254,146 @@ def restructure_df(**kwargs):
 	ti.xcom_push(key='products', value=products.to_json(orient='split'))
 	ti.xcom_push(key='regions', value=regions.to_json(orient='split'))
 
+def load_orders(**kwargs):
+	ti = kwargs['ti']
+
+	# extract orders data as JSON
+	try:
+		orders_json = ti.xcom_pull(task_ids='restructure_df', key='orders')
+	except Exception as error:
+		log.error(f'Error loading superstore.orders:\n\n{error}')
+
+	# read orders data from JSON
+	orders = pd.read_json(orders_json, orient='split')
+	orders['order_date'] = pd.to_datetime(orders['order_date'])
+	orders['ship_date'] = pd.to_datetime(orders['ship_date'])
+
+	# create temp table to hold new orders data
+	temp_table = load_temp_table(orders, 'orders')[-1]
+	columns, src_columns = get_col(orders)
+
+	# query to merge new orders data with existing orders data
+	merge_query = f"""
+	MERGE INTO explore29.superstore.orders  AS target
+	USING `{temp_table}` AS src ON
+		target.order_id = src.order_id
+		AND target.product_id = src.product_id
+	WHEN NOT MATCHED THEN
+	INSERT ({columns})
+	VALUES ({src_columns});
+	DROP TABLE {temp_table};
+	"""
+
+	# merge
+	try:
+		merge = client.query(merge_query)
+		log.info(f'Loaded superstore.orders. {merge.result()}')
+	except Exception as error:
+		log.error(f'Error loading superstore.orders:\n\n{error}')
+		raise
+
+def load_customers(**kwargs):
+	ti = kwargs['ti']
+
+	# extract customers data as JSON
+	try:
+		customers_json = ti.xcom_pull(task_ids='restructure_df', key='customers')
+	except Exception as error:
+		log.error(f'Error loading superstore.customers:\n\n{error}')
+
+	# read customers data from JSON
+	customers = pd.read_json(customers_json, orient='split')
+
+	# create temp table to hold new customers data
+	temp_table = load_temp_table(customers, 'customers')[-1]
+	columns, src_columns = get_col(customers)
+
+	# query to merge new customers data with existing customer data
+	merge_query = f"""
+	MERGE INTO explore29.superstore.customers AS target
+	USING `{temp_table}` AS src ON
+		target.customer_id = src.customer_id
+	WHEN NOT MATCHED THEN
+	INSERT ({columns})
+	VALUES ({src_columns});
+	DROP TABLE {temp_table};
+	"""
+
+	# merge
+	try:
+		merge = client.query(merge_query)
+		log.info(f'Loaded superstore.customers: {merge.result()}')
+	except Exception as error:
+		log.error(f'Error loading superstore.customers:\n\n{error}')
+		raise
+
+def load_products(**kwargs):
+	ti = kwargs['ti']
+
+	# extract products data as JSON
+	try:
+		products_json = ti.xcom_pull(task_ids='restructure_df', key='products')
+	except Exception as error:
+		log.error(f'Error loading superstore.products:\n\n{error}')
+
+	# read products data from JSON
+	products = pd.read_json(products_json, orient='split')
+
+	# create temp table to store new products data
+	temp_table = load_temp_table(products, 'products')[-1]
+	columns, src_columns = get_col(products)
+
+	# query to merge new products data with existing products data
+	merge_query = f"""
+	MERGE INTO explore29.superstore.products AS target
+	USING `{temp_table}` AS src ON
+		target.product_id = src.product_id
+	WHEN NOT MATCHED THEN
+	INSERT ({columns})
+	VALUES ({src_columns});
+	DROP TABLE {temp_table};
+	"""
+
+	# merge
+	try:
+		merge = client.query(merge_query)
+		log.info(f'Loaded superstore.products: {merge.result()}')
+	except BadRequest as error:
+		print(f'Failed to load superstore.products:\n\n{error}')
+
+
+def load_regions(**kwargs):
+	ti = kwargs['ti']
+
+	# extract regions data as JSON
+	try:
+		regions_json = ti.xcom_pull(task_ids='restructure_df', key='regions')
+	except Exception as error:
+		log.error(f'Error loading superstore.regions:\n\n{error}')
+
+	# read regions data from JSON
+	regions = pd.read_json(regions_json, orient='split')
+
+	# create temp table to store new regions data
+	temp_table = load_temp_table(regions, 'regions')[-1]
+	columns, src_columns = get_col(regions)
+
+	merge_query = f"""
+	MERGE INTO explore29.superstore.regions AS target
+	USING `{temp_table}` AS src ON
+		target.region = src.region
+	WHEN NOT MATCHED THEN
+	INSERT ({columns})
+	VALUES ({src_columns});
+	DROP TABLE {temp_table};
+	"""
+
+	try:
+		merge = client.query(merge_query)
+		merge.result()
+	except BadRequest as error:
+		print(f'Failed to load superstore.regions:\n\n{error}')
+
 with DAG(
 	'superstore_beta',
 	start_date=datetime(2024, 3, 6),
@@ -295,6 +435,31 @@ with DAG(
 		provide_context=True
 	)
 
+	task_load_orders = PythonOperator(
+		task_id='load_orders',
+		python_callable=load_orders,
+		provide_context=True
+	)
+	
+	task_load_customers = PythonOperator(
+		task_id='load_customers',
+		python_callable=load_customers,
+		provide_context=True
+	)
+	
+	task_load_products = PythonOperator(
+		task_id='load_products',
+		python_callable=load_products,
+		provide_context=True
+	)
+	
+	task_load_regions = PythonOperator(
+		task_id='load_regions',
+		python_callable=load_regions,
+		provide_context=True
+	)
+
 	# task dependencies
 	task_extract >> [task_process_Orders_Returns, task_process_People]
 	[task_process_Orders_Returns, task_process_People] >> task_restructure_df
+	task_restructure_df >> [task_load_orders, task_load_customers, task_load_products, task_load_regions]
