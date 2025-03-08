@@ -26,13 +26,19 @@ This is how the data will be transformed and warehoused.
 
 ---
 
+### **Data pipleline DAG diagram**
+
+
+<img src="https://github.com/user-attachments/assets/2693e71b-aefc-47f1-aadb-892cea5721d0" alt="Image" width="800" height="450">
+---
+
 ## Files
 
 ### Expermimenting with the ETL process
 
 - **Jupyter Notebook:** [Superstore-Analysis.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/Superstore-Analysis.ipynb)
 
-### Ingestion script
+### Ingestion script (data pipeline)
 
 - **Jupyter Notebook:** [ingestion.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
-- **Python script:** [ingestion.py](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
+- **Python script (Apache Airflow DAG):** [superstore_pipeline.py](https://github.com/nacht29/Super-Store-Analysis/blob/main/superstore_pipleline.py)
