@@ -41,4 +41,4 @@ This is how the data will be transformed and warehoused.
 ### Ingestion script (data pipeline)
 
 - **Jupyter Notebook:** [ingestion.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
-- **Python script (Apache Airflow DAG):** [superstore_pipeline.py](https://github.com/nacht29/Super-Store-Analysis/blob/main/superstore_pipleline.py)
+- **Python script (Apache Airflow DAG):** [superstore_pipeline.py](https://github.com/nacht29/Superstore-Analysis/blob/main/superstore_pipeline.py)
