@@ -54,7 +54,7 @@ def load_temp_table(df:'dataframe', table_name:str) -> tuple:
 	temp_table = f'explore29.superstore.{table_name}_tmp'
 
 	job_config = bq.LoadJobConfig(
-		write_disposition='WRITE_APPEND',
+		write_disposition='WRITE_TRUNCATE',
 		autodetect=True
 	)
 
