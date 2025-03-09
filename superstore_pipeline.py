@@ -49,12 +49,12 @@ def std_null(data):
 helper functions - load
 '''
 # loads df into table
-# returns the destination of table being loaded
+# returns temp table name to be used in the query
 def load_temp_table(df:'dataframe', table_name:str) -> tuple:
 	temp_table = f'explore29.superstore.{table_name}_tmp'
 
 	job_config = bq.LoadJobConfig(
-		write_disposition='WRITE_TRUNCATE',
+		write_disposition='WRITE_APPEND',
 		autodetect=True
 	)
 
@@ -217,7 +217,7 @@ def process_People(**kwargs):
 	# remove duplicates
 	people_df = people_df.drop_duplicates()
 	# handle NULL values
-	people_df = people_df.applymap(std_null)
+	people_df = people_df.applymap(std_null) # apply map as we are dealing with each indvidual element - use apply for columns
 
 	# update df to JSON
 	ti.xcom_push(key='people_df', value=people_df.to_json(orient='split'))
@@ -269,17 +269,20 @@ def load_orders(**kwargs):
 	orders['ship_date'] = pd.to_datetime(orders['ship_date'])
 
 	# create temp table to hold new orders data
-	temp_table = load_temp_table(orders, 'orders')[-1]
+	temp_table = load_temp_table(orders, 'orders')[-1] # get temp table name while loading to temp table
 	columns, src_columns = get_col(orders)
 
 	# query to merge new orders data with existing orders data
 	merge_query = f"""
+	-- merge into table as target
 	MERGE INTO explore29.superstore.orders  AS target
 	USING `{temp_table}` AS src ON
 		target.order_id = src.order_id
 		AND target.product_id = src.product_id
 	WHEN NOT MATCHED THEN
+	-- insert into these columns in target
 	INSERT ({columns})
+	-- using these values from src
 	VALUES ({src_columns});
 	DROP TABLE {temp_table};
 	"""
