@@ -67,8 +67,8 @@ def load_temp_table(df:'dataframe', table_name:str) -> tuple:
 	return (job.result(), temp_table)
 
 # gets column names for tables
-# adds src. suffix for table columns and return as str
-# (col:'column name in target table', src_col:'column name in target table')
+# adds src. prefix for table columns and return as str
+# return (col:'column name in target table', src_col:'column name in target table')
 def get_col(df:'dataframe') ->tuple:
 	col_lst = list(df.columns)
 	col = ', '.join(col_lst)
