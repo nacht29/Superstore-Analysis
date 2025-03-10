@@ -186,6 +186,8 @@ def process_Orders_Returns(**kwargs):
 
 	if mismatch == 0:
 		orders_df['returned'] = orders_df['order_id'].isin(returns_df['order_id']).map({True: 'Yes', False: 'No'})
+		# apply map - change indivdidual cells
+		# apply - change entire columns
 		orders_df = orders_df.applymap(std_null) # handle null values here for orders_df
 
 	# update Orders to JSON
@@ -243,7 +245,7 @@ def restructure_df(**kwargs):
 					'sales', 'quantity', 'discount', 'profit', 'returned']]
 
 	customers = orders_df[['customer_id', 'customer_name', 'segment', 
-						'country', 'city', 'province', 'post_code', 'region']].drop_duplicates(subset=['customer_id'])
+						'country', 'city', 'province', 'post_code', 'region']].drop_duplicates(subset=['customer_id', 'country', 'city', 'province', 'post_code', 'region' ])
 
 	products = orders_df[['product_id', 'product_name', 'category', 'sub_category']].drop_duplicates(subset=['product_id'])
 	regions = people_df[['region', 'manager']]
@@ -284,7 +286,6 @@ def load_orders(**kwargs):
 	INSERT ({columns})
 	-- using these values from src
 	VALUES ({src_columns});
-	DROP TABLE {temp_table};
 	"""
 
 	# merge
