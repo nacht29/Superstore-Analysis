@@ -22,13 +22,13 @@ SQL_SCRIPTS_PATH = 'sql-scripts/'
 JSON_KEYS_PATH = 'json-keys/'
 
 # Service Account JSON
+# consider secret manager - safekeeping of json keys (ask Ken)
 BQ_SERVICE_ACCOUNT = f'{JSON_KEYS_PATH}explore29-5a4f7581e39f.json'
 BUCKET_SERVICE_ACCOUNT = f'{JSON_KEYS_PATH}test_bucket_gdrive.json'
 
 # Google Drive auth
 SCOPES = ['https://www.googleapis.com/auth/drive']
 PARENT_FOLDER_ID = '1OLll_SpLxMhVC5kY3ISu0lf0cdF01_pP'
-
 
 warnings.filterwarnings('ignore')
 
@@ -47,7 +47,7 @@ def file_type_in_dir(dir:str, file_type:str):
 		files_in_dir = os.listdir()
 	else:
 		files_in_dir = os.listdir(dir)
-	
+
 	if file_type is None:
 		return(files_in_dir)
 
@@ -85,25 +85,33 @@ def load_gdrive():
 	creds = authenticate()
 	service = build('drive', 'v3', credentials=creds)
 
+	# get all existing files in Drive
 	query = f"'{PARENT_FOLDER_ID}' in parents and trashed=false"
 	response = service.files().list(q=query, fields='files(id, name)').execute()
 	files_in_drive = response.get('files_in_drive') # response.get('files', [])
 
+	# get name of all files to be loaded (.csv for now)
 	load_files = file_type_in_dir(None, '.csv')
+
+	# check for duplicates
 	for load_file in load_files:
+		# get list of dup files
 		query = f"'{PARENT_FOLDER_ID}' in parents and name='{load_file}' and trashed=false"
 		response = service.files().list(q=query, fields='files(id, name)').execute()
 		dup_files = response.get('files')
 
+		# delete duplicates if any
 		if dup_files:
 			for dup_file in dup_files:
 				service.files().delete(fileId=dup_file['id']).execute()
 	
+		# data of file to be loaded
 		file_metadata ={
 			'name': load_file,
 			'parents': [PARENT_FOLDER_ID]
 		}
 
+		# load file to drive
 		file = service.files().create(
 			body=file_metadata,
 			media_body=load_file
@@ -112,6 +120,7 @@ def load_gdrive():
 def remove_outfiles():
 	files_in_dir = file_type_in_dir(None, '.csv')
 
+	# remove all output files (in main dir by default)
 	for file in files_in_dir:
 		os.remove(file)
 	print(files_in_dir)
@@ -119,6 +128,7 @@ def remove_outfiles():
 with DAG(
 	'bucket_pipeline',
 	start_date=START_DATE,
+	# runs at 13:51 UTC +8
 	schedule="51 13 * * *",
 	catchup=True
 ) as dag:
