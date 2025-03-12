@@ -162,7 +162,7 @@ with DAG(
 	task_load_bq >> task_load_gdrive
 	task_load_gdrive >> task_remove_outfiles
 
-query_data()
-load_bq()
-load_gdrive()
-remove_outfiles()
+# query_data()
+# load_bq()
+# load_gdrive()
+# remove_outfiles()
