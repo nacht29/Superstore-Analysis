@@ -55,7 +55,8 @@ def file_type_in_dir(dir:str, file_type:str):
 	return files
 
 def gen_file_name(file:str, file_type:str, replace_type:str):
-	file_name = f'{file.replace(file_type, '')}_{date.today()}{replace_type}'
+	file_name = f"{file.replace(file_type, '')}_{date.today()}{replace_type}"
+	
 	return file_name
 
 def query_data():
@@ -160,4 +161,3 @@ with DAG(
 	task_query_data >> task_load_bq
 	task_load_bq >> task_load_gdrive
 	task_load_gdrive >> task_remove_outfiles
-	

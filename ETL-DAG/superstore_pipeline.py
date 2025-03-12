@@ -400,7 +400,7 @@ def load_regions(**kwargs):
 
 with DAG(
 	'superstore_pipeline',
-	start_date=datetime(2024, 3, 6),
+	start_date=datetime(2025, 3, 6),
 	schedule_interval=None,  # Correct parameter name
 	catchup=False,
 	params={
