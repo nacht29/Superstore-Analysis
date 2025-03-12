@@ -16,7 +16,7 @@ from googleapiclient.discovery import build
 from google.api_core.exceptions import Forbidden, NotFound
 
 TIME_ZONE = pendulum.timezone('Asia/Singapore')
-START_DATE = datetime(2025, 3, 9, tzinfo=TIME_ZONE)
+START_DATE = datetime(2025, 3, 11, tzinfo=TIME_ZONE)
 
 SQL_SCRIPTS_PATH = 'sql-scripts/'
 JSON_KEYS_PATH = 'json-keys/'
@@ -129,7 +129,7 @@ with DAG(
 	'bucket_pipeline',
 	start_date=START_DATE,
 	# runs at 13:51 UTC +8
-	schedule="51 13 * * *",
+	schedule="54 11 * * *",
 	catchup=True
 ) as dag:
 
@@ -160,3 +160,4 @@ with DAG(
 	task_query_data >> task_load_bq
 	task_load_bq >> task_load_gdrive
 	task_load_gdrive >> task_remove_outfiles
+	
