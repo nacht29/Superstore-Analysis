@@ -7,6 +7,7 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 import os
 import warnings
 import subprocess
+import calendar
 import pandas as pd
 from datetime import date, datetime
 from google.cloud import bigquery as bq
@@ -24,6 +25,7 @@ JSON_KEYS_PATH = 'json-keys/'
 # Service Account JSON
 # consider secret manager - safekeeping of json keys (ask Ken)
 BQ_SERVICE_ACCOUNT = f'{JSON_KEYS_PATH}explore29-5a4f7581e39f.json'
+# both bucket and drive
 BUCKET_SERVICE_ACCOUNT = f'{JSON_KEYS_PATH}test_bucket_gdrive.json'
 
 # Google Drive auth
@@ -82,42 +84,87 @@ def authenticate():
 	creds = service_account.Credentials.from_service_account_file(BUCKET_SERVICE_ACCOUNT, scopes=SCOPES)
 	return creds
 
-def load_gdrive():
-	creds = authenticate()
-	service = build('drive', 'v3', credentials=creds)
+# return (mm,yyyy)
+def get_month_year() -> tuple:
+	month = calendar.month_name[datetime.now().month]
+	year = datetime.now().year
 
-	# get all existing files in Drive
-	query = f"'{PARENT_FOLDER_ID}' in parents and trashed=false"
-	response = service.files().list(q=query, fields='files(id, name)').execute()
-	files_in_drive = response.get('files_in_drive') # response.get('files', [])
+	return (month, year)
 
-	# get name of all files to be loaded (.csv for now)
-	load_files = file_type_in_dir(None, '.csv')
+def drive_autodetect_folders(service, parent_folder_id:str, folder_name:str):
+	'''
+	# searches if folder exists in drive
+	# returns a list of dict
+	# id = file/folder id
+	# name = file/folder name
+	files = [
+		{'id':0, 'name':'A'},
+		{'id':1, 'name':'B'}
+	]
+	'''
 
-	# check for duplicates
-	for load_file in load_files:
-		# get list of dup files
-		query = f"'{PARENT_FOLDER_ID}' in parents and name='{load_file}' and trashed=false"
-		response = service.files().list(q=query, fields='files(id, name)').execute()
-		dup_files = response.get('files')
+	query = f"""
+	'{parent_folder_id}' in parents 
+	and name='{folder_name}'
+	and mimeType='application/vnd.google-apps.folder' 
+	and trashed=false
+	"""
 
-		# delete duplicates if any
-		if dup_files:
-			for dup_file in dup_files:
-				service.files().delete(fileId=dup_file['id']).execute()
-	
-		# data of file to be loaded
-		file_metadata ={
-			'name': load_file,
-			'parents': [PARENT_FOLDER_ID]
+	results = service.files().list(q=query, fields='files(id,name)').execute()
+	files_in_drive = results.get('files') # files_in_drive = results.get('files', [])
+
+	if files_in_drive:
+		return files_in_drive[0]['id']
+	else:
+		file_metadata = {
+			'name': folder_name,
+			'mimeType': 'application/vnd.google-apps.folder',
+			'parents': [parent_folder_id]
 		}
 
-		# load file to drive
-		file = service.files().create(
+		folder = service.files().create(
 			body=file_metadata,
-			media_body=load_file
+			fields='id'
 		).execute()
 
+		return folder['id']
+
+def load_gdrive():
+	# authenticate
+	creds = service_account.Credentials.from_service_account_file(BUCKET_SERVICE_ACCOUNT, scopes=SCOPES)
+	service = build('drive', 'v3', credentials=creds)
+	month, year = get_month_year()
+
+	# auto detect folders - create folder if destination folder does not exists
+	year_folder_id = drive_autodetect_folders(service, PARENT_FOLDER_ID, year)
+	month_folder_id = drive_autodetect_folders(service, year_folder_id, month)
+
+	# get name of all files to be loaded
+	csv_files = file_type_in_dir(None, '.csv')
+
+	for csv_file in csv_files:
+		query = f"""
+		'{month_folder_id}' in parents
+		and name = '{csv_file}'
+		and trashed=false
+		"""
+
+		results = service.files().list(q=query, fields='files(id, name)').execute()
+		dup_files = results.get('files')
+
+		if dup_files:
+			for dup_file in dup_files:
+				service.files().delete(fileID=dup_file['id']).execute()
+
+		file_metadata = {
+			'name':csv_file,
+			'parents': [month_folder_id]
+		}
+
+		file = service.files().create(
+			body=file_metadata,
+			media_body=csv_file
+		).execute()
 def remove_outfiles():
 	files_in_dir = file_type_in_dir(None, '.csv')
 
@@ -130,7 +177,7 @@ with DAG(
 	'bucket_pipeline',
 	start_date=START_DATE,
 	# runs at 13:51 UTC +8
-	schedule="54 11 * * *",
+	schedule="51 13  * * *",
 	catchup=True
 ) as dag:
 
@@ -162,7 +209,7 @@ with DAG(
 	task_load_bq >> task_load_gdrive
 	task_load_gdrive >> task_remove_outfiles
 
-# query_data()
-# load_bq()
-# load_gdrive()
-# remove_outfiles()
+query_data()
+load_bq()
+load_gdrive()
+remove_outfiles()
