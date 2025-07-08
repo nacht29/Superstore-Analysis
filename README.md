@@ -36,9 +36,9 @@ This is how the data will be transformed and warehoused.
 
 ### Expermimenting with the ETL process
 
-- **Jupyter Notebook:** [Superstore-Analysis.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/Superstore-Analysis.ipynb)
+- **Jupyter Notebook:** [Superstore-Analysis.ipynb](https://github.com/nacht29/Superstore-Analysis/blob/main/ETL-DAG/Superstore-Analysis.ipynb)
 
 ### Ingestion script (data pipeline)
 
-- **Jupyter Notebook:** [ingestion.ipynb](https://github.com/nacht29/Super-Store-Analysis/blob/main/ingestion.ipynb)
-- **Python script (Apache Airflow DAG):** [superstore_pipeline.py](https://github.com/nacht29/Superstore-Analysis/blob/main/superstore_pipeline.py)
+- **Jupyter Notebook:** [ingestion.ipynb](https://github.com/nacht29/Superstore-Analysis/blob/main/ETL-DAG/ingestion.ipynb)
+- **Python script (Apache Airflow DAG):** [superstore_pipeline.py](https://github.com/nacht29/Superstore-Analysis/blob/main/ETL-DAG/superstore_pipeline.py)
